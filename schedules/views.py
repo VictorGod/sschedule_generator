@@ -1,4 +1,3 @@
-from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from .models import Schedule, Employee, Shift
@@ -68,22 +67,18 @@ class ScheduleViewSet(viewsets.ModelViewSet):
             # Создание записей в расписании
             for employee in selected_employees:
                 shift = Shift.objects.create(start_time=shift_start_time, end_time=shift_end_time)
-
-                # Распределение часов для сотрудника
-                hours_assigned = 0
-                while hours_assigned < hours_per_employee:
-                    try:
-                        latest_schedule_id = Schedule.objects.latest('id').id
-                    except ObjectDoesNotExist:
-                        latest_schedule_id = 0
-
-                    schedule_entry = {
-                        "id": latest_schedule_id + 1,
-                        "date": date,
-                        "employee": employee.name,
-                        "shift": shift.id
-                    }
-                    schedule.append(schedule_entry)
-                    hours_assigned += 12  # Длительность стандартной смены
+                schedule_entry = Schedule.objects.create(date=date, employee=employee, shift=shift)
+                schedule.append({
+                    "id": schedule_entry.id,
+                    "date": schedule_entry.date,
+                    "employee": schedule_entry.employee.name,
+                    "shift": schedule_entry.shift.id
+                })
 
         return Response(schedule, status=status.HTTP_201_CREATED)
+
+    def create(self, request, *args, **kwargs):
+        if 'month' in request.data and 'year' in request.data:
+            return self.generate_schedule(request)
+        else:
+            return super().create(request, *args, **kwargs)
